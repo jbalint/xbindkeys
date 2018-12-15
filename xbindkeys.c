@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <X11/Xlib.h>
+#include <X11/extensions/XInput2.h>
 #include <signal.h>
 #include <unistd.h>
 #include <string.h>
@@ -189,8 +190,8 @@ and export or setenv it!\n");
 
   for (screen = 0; screen < ScreenCount (d); screen++)
     {
-      XSelectInput (d, RootWindow (d, screen),
-		    KeyPressMask | KeyReleaseMask | PointerMotionMask);
+      /* XSelectInput (d, RootWindow (d, screen), */
+      /*   	    KeyPressMask | KeyReleaseMask | PointerMotionMask); */
     }
 
   return (d);
@@ -248,6 +249,7 @@ event_loop (Display * d)
   time_t rc_guile_file_changed = 0;
   struct stat rc_guile_file_info;
 #endif
+  int keycode;
 
 
   XSetErrorHandler ((XErrorHandler) null_X_error);
@@ -293,51 +295,56 @@ event_loop (Display * d)
 	  usleep(SLEEP_TIME*1000);
 	}
 
+      XGenericEventCookie *cookie = &e.xcookie;
       XNextEvent (d, &e);
+      if (verbose)
+          printf("Event type=%d, cookie event type%d\n", e.type, cookie->evtype);
 
-      switch (e.type)
+      switch (cookie->evtype)
 	{
-	case KeyPress:
+	case XI_KeyPress:
+            XGetEventData(d, cookie);
+            keycode = ((XIDeviceEvent*)cookie->data)->detail;
 	  if (verbose)
 	    {
 	      printf ("Key press !\n");
-	      printf ("e.xkey.keycode=%d\n", e.xkey.keycode);
+	      printf ("keycode=%d\n", keycode);
 	      printf ("e.xkey.state=%d\n", e.xkey.state);
 	    }
 
-	  e.xkey.state &= ~(numlock_mask | capslock_mask | scrolllock_mask);
+	  e.xkey.state = 0;// &= ~(numlock_mask | capslock_mask | scrolllock_mask);
 
 	  for (i = 0; i < nb_keys; i++)
 	    {
 	      if (keys[i].type == SYM && keys[i].event_type == PRESS)
 		{
-		  if (e.xkey.keycode == XKeysymToKeycode (d, keys[i].key.sym)
+		  if (keycode == XKeysymToKeycode (d, keys[i].key.sym)
 		      && e.xkey.state == keys[i].modifier)
 		    {
 		      print_key (d, &keys[i]);
-		      adjust_display(&e.xany);
+		      //adjust_display(&e.xany);
 		      start_command_key (&keys[i]);
 		    }
 		}
 	      else
 	      if (keys[i].type == CODE && keys[i].event_type == PRESS)
 		{
-		  if (e.xkey.keycode == keys[i].key.code
+		  if (keycode == keys[i].key.code
 		      && e.xkey.state == keys[i].modifier)
 		    {
 		      print_key (d, &keys[i]);
-		      adjust_display(&e.xany);
+		      //adjust_display(&e.xany);
 		      start_command_key (&keys[i]);
 		    }
 		}
 	    }
 	  break;
 
-	case KeyRelease:
+	case XI_KeyRelease:
 	  if (verbose)
 	    {
 	      printf ("Key release !\n");
-	      printf ("e.xkey.keycode=%d\n", e.xkey.keycode);
+	      printf ("keycode=%d\n", keycode);
 	      printf ("e.xkey.state=%d\n", e.xkey.state);
 	    }
 
@@ -347,22 +354,22 @@ event_loop (Display * d)
 	    {
 	      if (keys[i].type == SYM && keys[i].event_type == RELEASE)
 		{
-		  if (e.xkey.keycode == XKeysymToKeycode (d, keys[i].key.sym)
+		  if (keycode == XKeysymToKeycode (d, keys[i].key.sym)
 		      && e.xkey.state == keys[i].modifier)
 		    {
 		      print_key (d, &keys[i]);
-		      adjust_display(&e.xany);
+		      //adjust_display(&e.xany);
 		      start_command_key (&keys[i]);
 		    }
 		}
 	      else
 	      if (keys[i].type == CODE && keys[i].event_type == RELEASE)
 		{
-		  if (e.xkey.keycode == keys[i].key.code
+		  if (keycode == keys[i].key.code
 		      && e.xkey.state == keys[i].modifier)
 		    {
 		      print_key (d, &keys[i]);
-		      adjust_display(&e.xany);
+		      //adjust_display(&e.xany);
 		      start_command_key (&keys[i]);
 		    }
 		}
@@ -429,6 +436,8 @@ event_loop (Display * d)
 	  break;
 
 	default:
+	  if (verbose) 
+            printf ("Event type=%d\n", e.type);
 	  break;
 	}
     }				/*  infinite loop */

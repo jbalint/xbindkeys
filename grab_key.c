@@ -17,8 +17,11 @@
 
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
+#include <X11/extensions/XInput2.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
+#include <string.h>
 #include "xbindkeys.h"
 #include "grab_key.h"
 #include "options.h"
@@ -80,9 +83,31 @@ my_grab_key (Display * dpy, KeyCode keycode, unsigned int modifier,
 {
   modifier &= ~(numlock_mask | capslock_mask | scrolllock_mask);
 
+  int device = 10;
+  XIEventMask mask;
+  XIEventMask mask2;
+  // https://github.com/google/liquidfun/blob/master/freeglut/src/x11/fg_xinput_x11.c
+  unsigned char flags[(XI_LASTEVENT + 7)/8];
+  unsigned char flags2[2] = {0, 0};
+  memset(&mask, 0, sizeof(XIEventMask));
+  memset(&mask2, 0, sizeof(XIEventMask));
+  mask.deviceid = device;
+  mask.mask_len = sizeof(flags);
+  mask.mask = flags;
 
-  XGrabKey (dpy, keycode, modifier, (win ? win : DefaultRootWindow (dpy)),
-	    False, GrabModeAsync, GrabModeAsync);
+  
+  XISetMask(mask.mask, XI_KeyPress);
+  XISetMask(mask.mask, XI_KeyRelease);
+
+  Status s = XISelectEvents(dpy, (win ? win : DefaultRootWindow(dpy)), &mask, 1);
+  assert(!s);
+  XIGrabModifiers mod;
+  memset(&mod, 0, sizeof(XIGrabModifiers));
+  mod.modifiers = XIAnyModifier;
+  int rc = XIGrabKeycode(dpy, device, keycode, (win ? win : DefaultRootWindow(dpy)),
+                         XIGrabModeAsync, XIGrabModeAsync, True, &mask, 1, &mod);
+  assert(!rc);
+  return;
 
   if (modifier == AnyModifier)
     return;

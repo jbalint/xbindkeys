@@ -32,7 +32,7 @@ LIBS=
 AC_CHECK_LIB(X11, XCreateWindow,, [
 	AC_MSG_WARN([Xbindkeys depends on the X11 libraries!])
 ], $LIBS_saved $X_LIBS)
-X_LIBS="$X_LIBS $LIBS"
+X_LIBS="$X_LIBS $LIBS -lXi"
 LIBS="$LIBS_saved"
 
 
@@ -62,18 +62,13 @@ AM_CONDITIONAL(TK, test x$use_tk = xyes)
 
 
 dnl disable guile config file
-use_guile=yes
+use_guile=no
 
 AC_ARG_ENABLE( guile,
 [  --disable-guile       Disable scheme/guile configuration file style ],
    use_guile="${enableval}")
 
 GUILE_FLAG=""
-
-if test "$use_guile" = yes; then
-   GUILE_FLAGS
-   GUILE_FLAG="-DGUILE_FLAG=1"
-fi
 
 AM_CONDITIONAL(GUILE, test x$use_guile = xyes)
 
